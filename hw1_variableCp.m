@@ -50,6 +50,17 @@ FracCore = 1/(BPR+1);
 compressor_pr = fanCompress_pr/fan_pr;
 c = k * R * T_1; % [m/s] speed of sound
 
+%% Specific Heat Equation
+% This is a polynomial expression for the specific heat given in the
+% textbook in table A-2.
+tmin = 273;
+tmax = 1800;
+airCoeffs = fliplr([28.11, 0.1967e-2, 0.4802e-5,-1.966e-9]);
+intCoeffs = polyint(airCoeffs);
+
+variable_cp = @(T) polyval(airCoeffs, T);
+integral_cp = @(T) polyval(intCoeffs, T);
+
 %% Stage 1: Exterior of Jet
 % It is easier to calculate the flow of air through the engine if we use
 % stagnation temperature and pressures so that we don't need to know
@@ -101,6 +112,10 @@ T0_3 = T0_1 + DeltaH_13/cp;
 
 H0_3 = H0_1 + DeltaH_13;
 %% Core::Compressors
+% We assume that a compressor is isentropic through its flow and therefore
+% the following isentropic relation holds:
+% 
+% This does not hold of varying $C_p$.
 P0_4 = P0_3*intake_pr*compressor_pr;
 T0_4s = T0_3*(P0_4/P0_3)^((k-1)/k);
 DeltaH_34s = cp*(T0_4s - T0_3);
