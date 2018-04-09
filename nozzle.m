@@ -6,7 +6,7 @@ function exitVelocity = nozzle(pStagIn, tStagIn, pExit, efficiency)
 %# 
 % exitVelocity = nozzle(pStagIn, tStagIn, pExit, efficiency);
 %
-%% Desctiption
+%% Description
 % This function uses basic relationships of compressible flow through a
 % nozzle to solve for the exit velocity. It assumes that the flow is 
 % isentropic and behaving as an ideal gas

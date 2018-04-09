@@ -58,8 +58,9 @@ tmax = 1800;
 airCoeffs = fliplr([28.11, 0.1967e-2, 0.4802e-5,-1.966e-9]);
 intCoeffs = polyint(airCoeffs);
 
-variable_cp = @(T) polyval(airCoeffs, T);
-integral_cp = @(T) polyval(intCoeffs, T);
+variable_cp = @(T) 1000*polyval(airCoeffs, T)/28.97;
+integral_cp = @(T) 1000*polyval(intCoeffs, T)/28.97;
+range_avg_cp = @(T1, T2) (integral_cp(T2) - integral_cp(T1)) / (T2-T1);
 
 %% Stage 1: Exterior of Jet
 % It is easier to calculate the flow of air through the engine if we use
@@ -83,9 +84,13 @@ H0_1 = H_1;
 P0_8 = P0_1*intake_pr*fan_pr;
 
 T0_8s = T0_1*(P0_8/P0_1)^((k-1)/k); %TODO: REPLACE FOR NON-CONSTANT SH
-DeltaH_18s = cp*(T0_8s-T0_1);
+
+% calculate average cp over temperature range
+cp_avg = range_avg_cp(T0_1, T0_8s);
+
+DeltaH_18s = cp_avg*(T0_8s-T0_1);
 DeltaH_18 = DeltaH_18s/fan_eff;
-T0_8 = T0_1 + DeltaH_18/cp;
+T0_8 = T0_1 + DeltaH_18/cp_avg;
 H0_8 = DeltaH_18 + H_1;
 
 BypassFanWork = DeltaH_18*FracBypass*MDot;
@@ -101,12 +106,16 @@ syms M
 eqn_P0_over_P = (1+0.5*(k-1)*M*M)^(k/(k-1)) == P0_9s/P_9s;
 M_9s = vpasolve(eqn_P0_over_P,M,[0 Inf]);
 T_9s = T0_9s/(1+0.5*(k-1)*M_9s*M_9s);
-H_9s = double(cp*(T_9s-T_1));
+
+cp_avg = range_avg_cp(T_1, double(T_9s));
+H_9s = double(cp_avg*(T_9s-T_1));
 
 %% Core::Fan
 P0_3 = P0_1*intake_pr*fan_pr;
 T0_3s = T0_1*(P0_3/P0_1)^((k-1)/k);
-DeltaH_13s = cp*(T0_3s - T0_1);
+
+cp_avg = range_avg_cp(T0_1, T0_3s);
+DeltaH_13s = cp_avg*(T0_3s - T0_1);
 DeltaH_13 = DeltaH_13s/fan_eff; % fan efficiency scales enthalpy
 T0_3 = T0_1 + DeltaH_13/cp;
 
@@ -118,9 +127,11 @@ H0_3 = H0_1 + DeltaH_13;
 % This does not hold of varying $C_p$.
 P0_4 = P0_3*intake_pr*compressor_pr;
 T0_4s = T0_3*(P0_4/P0_3)^((k-1)/k);
-DeltaH_34s = cp*(T0_4s - T0_3);
+
+cp_avg = range_avg_cp(T0_3, T0_4s);
+DeltaH_34s = cp_avg*(T0_4s - T0_3);
 DeltaH_34 = DeltaH_34s/compressor_eff;
-T0_4 = T0_3 + DeltaH_34/cp;
+T0_4 = T0_3 + DeltaH_34/cp_avg;
 
 H0_4 = H0_3 + DeltaH_34;
 
@@ -129,7 +140,8 @@ CoreCompressionWork = (DeltaH_34 + DeltaH_13)*FracCore*MDot;
 %% Core::Combustor
 P0_5 = P0_4*combustor_pr;
 
-DeltaH_45 = (T0_5 - T0_4) * cp;
+cp_avg = range_avg_cp(T0_4, T0_5);
+DeltaH_45 = (T0_5 - T0_4) * cp_avg;
 H0_5 = H0_4 + DeltaH_34;
 %% Core::Turbine
 % The turbine drives both the bypass fan and the compressor. Therefore, we
@@ -139,8 +151,9 @@ H0_5 = H0_4 + DeltaH_34;
 TotalWorkRequired = CoreCompressionWork + BypassFanWork;
 EnthalpyLoss = TotalWorkRequired/(FracCore*MDot);
 
-T0_6 = T0_5 - ((EnthalpyLoss/cp)/turbine_eff);
-T0_6s = T0_5 - ((EnthalpyLoss/cp));
+T0_6 = T0_5 - ((EnthalpyLoss/cp_avg)/turbine_eff);
+cp_avg = range_avg_cp(T0_6, T0_5);
+T0_6s = T0_5 - ((EnthalpyLoss/cp_avg));
 P0_6 = P0_5*(T0_6s/T0_5)^(k/(k-1)); %CHECK IM DOING THIS RIGHT!!!
 
 H0_6 = H0_5 - EnthalpyLoss;
@@ -156,7 +169,8 @@ syms M
 eqn_P0_over_P = (1+0.5*(k-1)*M*M)^(k/(k-1)) == P0_7s/P_7s;
 M_7s = vpasolve(eqn_P0_over_P,M,[0 Inf]);
 T_7s = T0_7s/(1+0.5*(k-1)*M_7s*M_7s);
-H_7s = double(cp*(T_7s-T_1));
+cp_avg = range_avg_cp(T_1, double(T_7s));
+H_7s = double(cp_avg*(T_7s-T_1));
 
 %% Find Thrust of Engine
 % The thrust of the engine is given in general by the equation
